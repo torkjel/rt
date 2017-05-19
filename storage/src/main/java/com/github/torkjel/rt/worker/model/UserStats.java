@@ -1,4 +1,4 @@
-package com.github.torkjel.rt.api.model;
+package com.github.torkjel.rt.worker.model;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -12,15 +12,15 @@ public class UserStats {
     public void click() {
         clicks.incrementAndGet();
     }
-    
+
     public void impress() {
         impressions.incrementAndGet();
     }
 
-    public void register(Event e) { 
+    public void register(Event e) {
         if (e.isClick())
             click();
-        else 
+        else
             impress();
     }
 }

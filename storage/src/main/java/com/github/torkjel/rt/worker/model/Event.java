@@ -1,4 +1,4 @@
-package com.github.torkjel.rt.api.model;
+package com.github.torkjel.rt.worker.model;
 
 import lombok.Builder;
 import lombok.Data;
@@ -14,9 +14,5 @@ public class Event {
 
     public boolean isClick() {
         return "click".equals(action);
-    }
-
-    public String toUrlQueryPart() {
-        return "timestamp=" + timestamp + "&user=" + user + "&" + action;
     }
 }
