@@ -28,6 +28,21 @@ public class HourStats {
                 this.impressions + that.getImpressions());
     }
 
+    public HourStats addEventForNewUser(Event event) {
+        return new HourStats(
+                this.uniqueUsers + 1,
+                this.clicks + ("click".equals(event.getAction()) ? 1 : 0),
+                this.impressions + ("impression".equals(event.getAction()) ? 1 : 0));
+    }
+
+    public HourStats addEventForKnownUser(Event event) {
+        return new HourStats(
+                this.uniqueUsers,
+                this.clicks + ("click".equals(event.getAction()) ? 1 : 0),
+                this.impressions + ("impression".equals(event.getAction()) ? 1 : 0));
+    }
+
+
     public String toString() {
         // Typo "unqiue", as per spec.
         return

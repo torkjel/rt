@@ -6,6 +6,8 @@ import lombok.ToString;
 
 import static com.github.torkjel.rt.api.utils.HashUtil.hash;
 
+import com.github.torkjel.rt.api.utils.TimeUtils;
+
 @Data
 @ToString
 public class Event {
@@ -17,7 +19,7 @@ public class Event {
     @Builder
     private Event(long timestamp, String user, String action) {
         this.timestamp = timestamp;
-        this.hourStart = timestamp / 3600 * 3600;
+        this.hourStart = TimeUtils.startOfHour(timestamp);
         this.user = user;
         this.action = action;
     }

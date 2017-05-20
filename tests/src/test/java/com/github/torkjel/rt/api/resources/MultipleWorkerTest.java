@@ -27,7 +27,7 @@ public class MultipleWorkerTest {
         ApiMain.main(new String[] {"0", "/cluster2.json"});
 
         // start two http servers, at 9000 and 9001
-        WorkerMain.main(new String[] {"0"});
+        WorkerMain.main(new String[] {"0", "1", "2"});
         Thread.sleep(1000);
     }
 
@@ -78,6 +78,46 @@ public class MultipleWorkerTest {
                 } catch (UnirestException e) {
                     throw new RuntimeException(e);
                 }
+            });
+
+        HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
+        HttpResponse<String> response = get.asString();
+        assertThat(response.getStatus()).isEqualTo(200);
+        HourStats stats = HourStats.parse(response.getBody());
+        assertThat(stats.getClicks() + stats.getImpressions()).isEqualTo(eventCount);
+        assertThat(stats.getUniqueUsers()).isEqualTo(userCount);
+    }
+
+    @Test
+    public void testLoadAndRetrieve() throws Exception {
+
+
+        // Generate 100k events from 1k users. 50/50% impressions and clicks.
+
+        int userCount = 1000;
+        int eventCount = 100000;
+
+        long hour = System.currentTimeMillis() / 3600 * 3600;
+        LongStream.range(0, eventCount)
+            .parallel()
+            .map(i -> hour + (int)(Math.random() * (i % 3600)))
+            .forEach(timestamp -> {
+                String url = "http://localhost:8000/analytics" + createQueryString(timestamp, userCount);
+                log.info(url);
+                HttpRequest postReq = post(url);
+                try {
+                    HttpResponse<String> response = postReq.asString();
+                    assertThat(response.getStatus()).isEqualTo(202);
+
+                    // every 10th post, also to a get
+                    if (timestamp % 10 < 5) {
+                        HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
+                        log.info(HourStats.parse(get.asString().getBody()).toString());
+                    }
+                } catch (UnirestException e) {
+                    throw new RuntimeException(e);
+                }
+
             });
 
         HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
