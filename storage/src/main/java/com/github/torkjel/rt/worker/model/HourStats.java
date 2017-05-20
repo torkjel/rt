@@ -1,11 +1,13 @@
 package com.github.torkjel.rt.worker.model;
 
+import java.io.Serializable;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class HourStats {
+public class HourStats implements Serializable {
 
     private final long uniqueUsers;
     private final long clicks;
@@ -17,8 +19,8 @@ public class HourStats {
 
     public HourStats(UserStats userStats) {
         uniqueUsers = 1;
-        clicks = userStats.getClicks().get();
-        impressions = userStats.getImpressions().get();
+        clicks = userStats.getClicks();
+        impressions = userStats.getImpressions();
     }
 
     public HourStats combine(HourStats that) {

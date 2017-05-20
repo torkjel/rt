@@ -19,7 +19,7 @@ import com.github.torkjel.rt.api.model.HourStats;
 import lombok.extern.log4j.Log4j;
 
 @Log4j
-public class Dispatcher {
+public class Dispatcher implements AutoCloseable {
 
     private final Cluster cluster;
     private final AsyncHttpClient httpClient;
@@ -77,4 +77,16 @@ public class Dispatcher {
             clients.put(url, client = new WorkerClient(httpClient, url));
         return client;
     }
+
+    @Override
+    public void close() throws Exception {
+        blockUtilIdle();
+        clients.values().forEach(WorkerClient::close);
+    }
+
+    public void blockUtilIdle() throws Exception {
+        while (clients.values().stream().map(WorkerClient::isIdle).anyMatch(idle -> !idle))
+            Thread.sleep(10);
+    }
+
 }

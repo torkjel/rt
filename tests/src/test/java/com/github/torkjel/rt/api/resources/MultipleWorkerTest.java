@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import com.github.torkjel.rt.api.ApiMain;
 import com.github.torkjel.rt.api.model.HourStats;
+import com.github.torkjel.rt.api.utils.TimeUtils;
 import com.github.torkjel.rt.worker.WorkerMain;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.exceptions.UnirestException;
@@ -26,15 +27,18 @@ public class MultipleWorkerTest {
     public void setUp() throws Exception {
         ApiMain.main(new String[] {"0", "/cluster2.json"});
 
-        // start two http servers, at 9000 and 9001
+        // start two http servers, at 9000, 9001 and 9002
         WorkerMain.main(new String[] {"0", "1", "2"});
+
+        // Startup happens asynchronously behind our backs. Give it a grace period.
         Thread.sleep(1000);
     }
 
     @After
-    public void shutDown() {
-        com.github.torkjel.rt.api.Services.instance().getMain().stop();
-        com.github.torkjel.rt.worker.Services.instance().getMain().stop();
+    public void shutDown() throws Exception {
+        com.github.torkjel.rt.api.Services.instance().close();
+        com.github.torkjel.rt.worker.Services.instance().clearData();
+        com.github.torkjel.rt.worker.Services.instance().close();
     }
 
     @Test
@@ -64,7 +68,7 @@ public class MultipleWorkerTest {
         int userCount = 1000;
         int eventCount = 100000;
 
-        long hour = System.currentTimeMillis() / 3600 * 3600;
+        long hour = TimeUtils.startOfHour(System.currentTimeMillis());
         LongStream.range(0, eventCount)
             .parallel()
             .map(i -> hour + (int)(Math.random() * (i % 3600)))
@@ -75,17 +79,14 @@ public class MultipleWorkerTest {
                 try {
                     HttpResponse<String> response = postReq.asString();
                     assertThat(response.getStatus()).isEqualTo(202);
-                } catch (UnirestException e) {
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             });
 
-        HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
-        HttpResponse<String> response = get.asString();
-        assertThat(response.getStatus()).isEqualTo(200);
-        HourStats stats = HourStats.parse(response.getBody());
-        assertThat(stats.getClicks() + stats.getImpressions()).isEqualTo(eventCount);
-        assertThat(stats.getUniqueUsers()).isEqualTo(userCount);
+        com.github.torkjel.rt.api.Services.instance().blockUtilIdle();
+
+        verifyStats(userCount, eventCount, hour);
     }
 
     @Test
@@ -97,7 +98,7 @@ public class MultipleWorkerTest {
         int userCount = 1000;
         int eventCount = 100000;
 
-        long hour = System.currentTimeMillis() / 3600 * 3600;
+        long hour = TimeUtils.startOfHour(System.currentTimeMillis());
         LongStream.range(0, eventCount)
             .parallel()
             .map(i -> hour + (int)(Math.random() * (i % 3600)))
@@ -114,12 +115,51 @@ public class MultipleWorkerTest {
                         HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
                         log.info(HourStats.parse(get.asString().getBody()).toString());
                     }
-                } catch (UnirestException e) {
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
             });
 
+        com.github.torkjel.rt.api.Services.instance().blockUtilIdle();
+
+        verifyStats(userCount, eventCount, hour);
+    }
+
+    @Test
+    public void testGetStatsFromWorkerNodes() throws Exception {
+
+        int userCount = 10;
+        int eventCount = 1000;
+
+        long hour = TimeUtils.startOfHour(System.currentTimeMillis());
+        LongStream.range(0, eventCount)
+            .parallel()
+            .map(i -> hour + (int)(Math.random() * (i % 3600)))
+            .forEach(timestamp -> {
+                String url = "http://localhost:8000/analytics" + createQueryString(timestamp, userCount);
+                log.info(url);
+                HttpRequest postReq = post(url);
+                try {
+                    HttpResponse<String> response = postReq.asString();
+                    assertThat(response.getStatus()).isEqualTo(202);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+            });
+
+        com.github.torkjel.rt.api.Services.instance().blockUtilIdle();
+
+        verifyStats(userCount, eventCount, hour);
+
+        // Let caches expire.
+        Thread.sleep(2000);
+
+        verifyStats(userCount, eventCount, hour);
+    }
+
+    private void verifyStats(int userCount, int eventCount, long hour) throws UnirestException {
         HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + hour);
         HttpResponse<String> response = get.asString();
         assertThat(response.getStatus()).isEqualTo(200);

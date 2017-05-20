@@ -3,6 +3,7 @@ package com.github.torkjel.rt.worker;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.github.torkjel.rt.worker.model.PersistentStorageService;
 import com.github.torkjel.rt.worker.model.StorageService;
 
 import lombok.Getter;
@@ -26,8 +27,17 @@ public class Services {
     public synchronized StorageService getStorageServiceForNode(int port) {
         StorageService ss = storageServices.get(port);
         if (ss == null)
-            storageServices.put(port,  ss = new StorageService());
+            storageServices.put(port,  ss = new PersistentStorageService(config.getDataFile(port)));
         return ss;
     }
 
+    public void close() {
+        main.stop();
+        storageServices.values().forEach(StorageService::close);
+        storageServices.clear();
+    }
+
+    public void clearData() {
+        storageServices.values().forEach(StorageService::clear);
+    }
 }

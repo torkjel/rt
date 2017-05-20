@@ -1,26 +1,21 @@
 package com.github.torkjel.rt.worker.model;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.io.Serializable;
 
 import lombok.Data;
 
 @Data
-public class UserStats {
-    private AtomicInteger clicks = new AtomicInteger();
-    private AtomicInteger impressions = new AtomicInteger();
+public class UserStats implements Serializable {
+    private final int clicks;
+    private final int impressions;
 
-    public void click() {
-        clicks.incrementAndGet();
+    public static UserStats empty() {
+        return new UserStats(0, 0);
     }
 
-    public void impress() {
-        impressions.incrementAndGet();
-    }
-
-    public void register(Event e) {
-        if (e.isClick())
-            click();
-        else
-            impress();
+    public UserStats udpate(Event e) {
+        return new UserStats(
+                clicks + (e.isClick() ? 1 : 0),
+                impressions + (e.isClick() ? 0 : 1));
     }
 }

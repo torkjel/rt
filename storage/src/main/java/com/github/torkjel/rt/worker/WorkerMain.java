@@ -18,6 +18,7 @@ public class WorkerMain extends AbstractVerticle {
     public static void main(String[] args) {
         Services.instance().setConfig(Config.parse(args));
         Runner.runExample(WorkerMain.class);
+        Runtime.getRuntime().addShutdownHook(new Thread(Services.instance()::close));
     }
 
     @Override

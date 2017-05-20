@@ -3,7 +3,7 @@ package com.github.torkjel.rt.worker.model;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.github.torkjel.rt.worker.model.StorageService;
+import com.github.torkjel.rt.worker.model.InMemStorageService;
 import com.github.torkjel.rt.worker.model.Event;
 import com.github.torkjel.rt.worker.model.HourStats;
 
@@ -18,7 +18,7 @@ public class StorageServiceTest {
 
     @Before
     public void setUp() {
-        ss = new StorageService();
+        ss = new InMemStorageService();
     }
 
     @Test

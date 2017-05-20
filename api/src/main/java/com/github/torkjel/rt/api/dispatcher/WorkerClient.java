@@ -1,9 +1,15 @@
 package com.github.torkjel.rt.api.dispatcher;
 
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import org.asynchttpclient.*;
+import org.asynchttpclient.exception.TooManyConnectionsException;
+import org.asynchttpclient.exception.TooManyConnectionsPerHostException;
 
 import com.github.torkjel.rt.api.model.Event;
 import com.github.torkjel.rt.api.model.HourStats;
@@ -18,7 +24,12 @@ public class WorkerClient {
     private final String baseUrl;
     private final AsyncHttpClient asyncHttpClient;
 
+    private final AtomicInteger maxQueue = new AtomicInteger(0);
+    private final AtomicInteger queuedQueries = new AtomicInteger(0);
+
     private final Cache<Long, HourStats> statsCache = new Cache<>(1000);
+
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     public WorkerClient(AsyncHttpClient client, String url) {
         this.baseUrl = url;
@@ -27,8 +38,16 @@ public class WorkerClient {
 
     public void submit(Event e) {
 
+        queuedQueries.incrementAndGet();
+
+        int queueSize = queuedQueries.get();
+        if (queueSize > maxQueue.get()) {
+            maxQueue.set(queueSize);
+            log.warn("Max queue: " + queueSize + " " + baseUrl);
+        }
+
         String url = baseUrl + "?" + e.toUrlQueryPart();
-        log.info("POSTing " + url);
+        log.info(this + "POSTing " + url);
 
         asyncHttpClient
             .preparePost(url)
@@ -39,15 +58,31 @@ public class WorkerClient {
                             log.info("POSTed " + url + " : " + response.getStatusCode() + "\n" + response.getResponseBody());
                             if (response.getStatusCode() == 200)
                                 statsCache.update(e.getHourStart(), HourStats.parse(response.getResponseBody()));
+                            queuedQueries.decrementAndGet();
                             return response;
                         }
                         @Override
                         public void onThrowable(Throwable t){
-                            // TODO: metrics should report errors.
-                            log.error("Request " + url + " failed", t);
-                            t.printStackTrace();
+                            if (t instanceof TooManyConnectionsException
+                                    || t instanceof TooManyConnectionsPerHostException) {
+                                log.warn("Too many connections. Rescheduling. Queue = " + queuedQueries.get() + ", url = " + baseUrl);
+                                executor.schedule(() -> WorkerClient.this.submit(e), queuedQueries.get() * 3, TimeUnit.MILLISECONDS);
+                            } else {
+                                // TODO: metrics should report errors.
+                                log.error("Request " + url + " failed", t);
+                                t.printStackTrace();
+                            }
+                            queuedQueries.decrementAndGet();
                         }
                     });
+    }
+
+    public boolean isIdle() {
+        return queuedQueries.get() == 0;
+    }
+
+    public void close() {
+        executor.shutdown();
     }
 
     public void retrieve(long timestamp, Consumer<HourStats> callback) {
