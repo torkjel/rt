@@ -1,5 +1,7 @@
 package com.github.torkjel.rt.api.resources;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -12,10 +14,15 @@ import com.github.torkjel.rt.api.Services;
 import com.github.torkjel.rt.api.dispatcher.Dispatcher;
 import com.github.torkjel.rt.api.model.Event;
 
+import lombok.extern.log4j.Log4j;
+
 import javax.ws.rs.container.AsyncResponse;
 
 @Path("/analytics")
+@Log4j
 public class Analytics {
+
+    private static AtomicInteger submitCount = new AtomicInteger(0);
 
     @POST
     public Response submit(
@@ -24,6 +31,8 @@ public class Analytics {
             @QueryParam("click") String click,
             @QueryParam("impression") String impression) {
 
+        log.info("POST /analytics #" + submitCount.incrementAndGet());
+
         if (click == null && impression == null)
             throw new WebApplicationException(400);
 
@@ -31,21 +40,27 @@ public class Analytics {
                 .action(click != null ? "click" : "impression")
                 .timestamp(ts)
                 .user(user)
-                .build();
+                .build()
+                .anonymized();
 
         dispatcher().submit(event);
 
+        log.info("POST /analytics DONE");
         return Response.accepted().build();
     }
 
     @GET
     public void retrieve(
             @Suspended AsyncResponse response,
-            @QueryParam("timestamp") Long ts) {
+            @QueryParam("timestamp") Long timestamp) {
+
+        log.info("GET /analytics");
 
         dispatcher().retrieve(
-                ts,
+                timestamp,
                 stats -> response.resume(stats.toString()));
+
+        log.info("GET /analytics DONE");
     }
 
     private Dispatcher dispatcher() {

@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 import org.asynchttpclient.AsyncHttpClient;
 import org.asynchttpclient.DefaultAsyncHttpClient;
 
+import com.github.torkjel.rt.api.config.Config;
 import com.github.torkjel.rt.api.dispatcher.Dispatcher;
 import com.github.torkjel.rt.api.dispatcher.WorkerClient;
 
@@ -27,18 +28,8 @@ public class Services {
     private final Singleton<WorkerClient[]> clients = new Singleton<>();
     private final Singleton<Dispatcher> dispatcher = new Singleton<>();
 
-    public WorkerClient[] getWorkerClients() {
-        return clients.get(() -> {
-            String[] workerUrls = config.getWorkers();
-            WorkerClient[] clients = new WorkerClient[workerUrls.length];
-            for (int n = 0; n < workerUrls.length; n++)
-                clients[n] = new WorkerClient(httpClient, workerUrls[n]);
-            return clients;
-        });
-    }
-
     public Dispatcher getDispatcher() {
-        return dispatcher.get(() -> new Dispatcher(getWorkerClients()));
+        return dispatcher.get(() -> new Dispatcher(config.getCluster(), httpClient));
     }
 
     private static class Singleton<T> {

@@ -1,5 +1,8 @@
 package com.github.torkjel.rt.worker;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.github.torkjel.rt.worker.model.StorageService;
 
 import lombok.Getter;
@@ -15,8 +18,16 @@ public class Services {
         return INSTANCE;
     }
 
-    private final StorageService analyticsService = new StorageService();
+    private final Map<Integer, StorageService> storageServices = new HashMap<>();
+
     private WorkerMain main;
     private Config config;
+
+    public synchronized StorageService getStorageServiceForNode(int port) {
+        StorageService ss = storageServices.get(port);
+        if (ss == null)
+            storageServices.put(port,  ss = new StorageService());
+        return ss;
+    }
 
 }

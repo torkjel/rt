@@ -2,14 +2,17 @@ package com.github.torkjel.rt.worker;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.examples.resteasy.util.Runner;
+import lombok.extern.log4j.Log4j;
+
 import org.jboss.resteasy.plugins.server.vertx.VertxRequestHandler;
 import org.jboss.resteasy.plugins.server.vertx.VertxResteasyDeployment;
 
 import com.github.torkjel.rt.worker.resources.Worker;
 
 /*
- * Init code shamelessly stolen from https://github.com/vert-x3/vertx-examples/tree/master/resteasy-examples/src/main/java/io/vertx/examples/resteasy
+ * Init code based on https://github.com/vert-x3/vertx-examples/tree/master/resteasy-examples/src/main/java/io/vertx/examples/resteasy
  */
+@Log4j
 public class WorkerMain extends AbstractVerticle {
 
     public static void main(String[] args) {
@@ -19,15 +22,21 @@ public class WorkerMain extends AbstractVerticle {
 
     @Override
     public void start() throws Exception {
-        VertxResteasyDeployment deployment = new VertxResteasyDeployment();
-        deployment.start();
-        deployment.getRegistry().addPerInstanceResource(Worker.class);
 
-        vertx.createHttpServer()
-                .requestHandler(new VertxRequestHandler(vertx, deployment))
-                .listen(Services.instance().getConfig().getPort(), ar -> {
-                    System.out.println("Server started on port "+ ar.result().actualPort());
-                });
+        // Bring up one http server per configured port. This allows us to run multiple worker
+        // nodes in one jvm, which is really useful for testing.
+        for (int port : Services.instance().getConfig().getPorts()) {
+
+            VertxResteasyDeployment deployment = new VertxResteasyDeployment();
+            deployment.start();
+            deployment.getRegistry().addPerInstanceResource(Worker.class);
+
+            vertx.createHttpServer()
+                    .requestHandler(new VertxRequestHandler(vertx, deployment))
+                    .listen(port, ar -> {
+                        log.info("Server started on port "+ ar.result().actualPort());
+                    });
+        }
 
         Services.instance().setMain(this);
     }

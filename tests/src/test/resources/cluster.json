@@ -1,0 +1,11 @@
+{
+    "api-nodes" : {
+        "0" : "http://localhost:8000/analytics"
+    },
+
+    "worker-nodes" : {
+        "0" : "http://localhost:9000/worker"
+    },
+
+    "routing" : ["0"]
+}

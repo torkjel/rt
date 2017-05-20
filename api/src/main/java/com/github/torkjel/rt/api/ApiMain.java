@@ -5,6 +5,7 @@ import io.vertx.examples.resteasy.util.Runner;
 import org.jboss.resteasy.plugins.server.vertx.VertxRequestHandler;
 import org.jboss.resteasy.plugins.server.vertx.VertxResteasyDeployment;
 
+import com.github.torkjel.rt.api.config.Config;
 import com.github.torkjel.rt.api.resources.Analytics;
 
 /*
@@ -25,7 +26,7 @@ public class ApiMain extends AbstractVerticle {
 
         vertx.createHttpServer()
                 .requestHandler(new VertxRequestHandler(vertx, deployment))
-                .listen(Services.instance().getConfig().getPort(), ar -> {
+                .listen(Services.instance().getConfig().getLocalPort(), ar -> {
                     System.out.println("Server started on port "+ ar.result().actualPort());
                 });
 

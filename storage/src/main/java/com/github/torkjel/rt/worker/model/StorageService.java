@@ -7,7 +7,7 @@ public class StorageService {
 
     private Map<Long, Map<String, UserStats>> data = new HashMap<>();
 
-    public void store(Event event) {
+    public synchronized void store(Event event) {
         long startOfHour = startOfHour(event.getTimestamp());
         Map<String, UserStats> hourData = data.get(startOfHour);
         if (hourData == null)

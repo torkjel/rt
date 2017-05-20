@@ -15,6 +15,17 @@ public class HourStats {
     private final long clicks;
     private final long impressions;
 
+    public HourStats combine(HourStats that) {
+        return new HourStats(
+                this.uniqueUsers + that.getUniqueUsers(),
+                this.clicks + that.getClicks(),
+                this.impressions + that.getImpressions());
+    }
+
+    public static HourStats empty() {
+        return new HourStats(0, 0, 0);
+    }
+
     public static HourStats parse(String message) {
         String[] lines = message.split("\n");
         HourStatsBuilder builder = HourStats.builder();
