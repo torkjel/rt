@@ -11,7 +11,7 @@ public class ClusterTest {
 
     @Before
     public void setup() {
-        c = Cluster.parseResource("/test-cluster.json");
+        c = Cluster.loadFromResource("/test-cluster.json");
     }
 
     @Test

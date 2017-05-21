@@ -14,7 +14,7 @@ import static com.mashape.unirest.http.Unirest.*;
 
 import static org.assertj.core.api.Assertions.*;
 
-public class AnalyticsTest {
+public class BasicTest {
 
     @Before
     public void setUp() throws Exception {

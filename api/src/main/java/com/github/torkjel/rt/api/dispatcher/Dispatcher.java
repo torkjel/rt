@@ -6,54 +6,79 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.asynchttpclient.AsyncHttpClient;
 
 import com.github.torkjel.rt.api.config.Cluster;
+import com.github.torkjel.rt.api.config.ClusterChangedEvent;
 import com.github.torkjel.rt.api.model.Event;
 import com.github.torkjel.rt.api.model.HourStats;
+import com.google.common.eventbus.Subscribe;
 
 import lombok.extern.log4j.Log4j;
 
 @Log4j
 public class Dispatcher implements AutoCloseable {
 
-    private final Cluster cluster;
+    private volatile Cluster cluster;
+    private final AsyncHttpClient httpClient;
 
     private final Map<String, WorkerClient> clients = new HashMap<>();
 
     public Dispatcher(Cluster cluster, AsyncHttpClient httpClient) {
-        this.cluster = cluster;
-        for (String url : cluster.getWorkerNodes().values())
-            clients.put(url, new WorkerClient(httpClient, url, cluster));
+        this.httpClient = httpClient;
+        loadFromCluster(cluster);
     }
 
     public void submit(Event e) {
         Event anonymized = e.anonymized(cluster.getSliceNumber(e.getTimestamp()));
-        getWorkerByHash(e.getTimestamp(), anonymized.getUser().charAt(0)).submit(anonymized);
+        getWorkerByHash(e.getTimestamp(), anonymized.getRoutingKey()).submit(anonymized);
     }
 
     public void retrieve(long timestamp, Consumer<HourStats> callback) {
-
-        log.info("Retrieving");
-
         List<WorkerClient> validWorkers = getActiveWorkers(timestamp);
 
         AtomicInteger count = new AtomicInteger(validWorkers.size());
         List<HourStats> stats = Collections.synchronizedList(new ArrayList<>());
 
-        log.info("Retrieving from " + count + " workers");
+        log.debug("Retrieving from " + count + " workers");
 
-        Consumer<HourStats> workerCallback = (hs) -> {
-            log.info("Got results from worker: " + hs);
+        BiConsumer<String, HourStats> workerCallback = (url, hs) -> {
+            log.debug("Got results from worker " + url + ": " + hs);
             stats.add(hs);
             if (count.decrementAndGet() == 0) {
-                log.info("Got results from all workers");
                 HourStats aggregated = stats.stream().reduce(HourStats::combine).orElse(HourStats.empty());
-                log.info("Aggregated: " + aggregated);
+                log.debug("Aggregated: " + aggregated);
                 callback.accept(aggregated);
+            }
+        };
+
+        validWorkers.forEach(wc -> wc.retrieve(cluster.getSliceNumber(timestamp), workerCallback));
+    }
+
+    public void retrieveDetailed(long timestamp, Consumer<String> callback) {
+        List<WorkerClient> validWorkers = getActiveWorkers(timestamp);
+
+        AtomicInteger count = new AtomicInteger(validWorkers.size());
+        Map<String, HourStats> stats = Collections.synchronizedMap(new HashMap<>());
+
+        long slice = cluster.getSliceNumber(timestamp);
+
+        log.debug("Retrieving from " + count + " workers");
+
+        BiConsumer<String, HourStats> workerCallback = (url, hs) -> {
+            log.debug("Got results from worker " + url + ": " + hs);
+            stats.put(url, hs);
+            if (count.decrementAndGet() == 0) {
+                StringBuilder sb = new StringBuilder();
+                stats.forEach((u, h) -> sb
+                        .append("slice,").append(slice).append("\n")
+                        .append("worker,").append(u).append("\n")
+                        .append(h.toString()));
+                callback.accept(sb.toString());
             }
         };
 
@@ -88,9 +113,16 @@ public class Dispatcher implements AutoCloseable {
         }
     }
 
-    public String toString() {
-        return clients.toString();
+    @Subscribe
+    public void clusterChanged(ClusterChangedEvent e) {
+        log.info("Got new cluster config");
+        loadFromCluster(e.getCluster());
     }
 
-
+    private void loadFromCluster(Cluster cluster) {
+        this.cluster = cluster;
+        for (String url : cluster.getWorkerNodes().values())
+            if (!clients.containsKey(url))
+                    clients.put(url, new WorkerClient(httpClient, url, cluster));
+    }
 }

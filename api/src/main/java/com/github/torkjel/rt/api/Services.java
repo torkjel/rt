@@ -8,6 +8,7 @@ import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 
 import com.github.torkjel.rt.api.config.Config;
 import com.github.torkjel.rt.api.dispatcher.Dispatcher;
+import com.google.common.eventbus.EventBus;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -25,6 +26,8 @@ public class Services implements AutoCloseable {
     private ApiMain main;
     private Config config;
 
+    private final EventBus eventBus = new EventBus();
+
     private final Singleton<AsyncHttpClient> httpClient = new Singleton<>();
     private final Singleton<Dispatcher> dispatcher = new Singleton<>();
 
@@ -38,10 +41,16 @@ public class Services implements AutoCloseable {
     }
 
     public Dispatcher getDispatcher() {
-        return dispatcher.get(() -> new Dispatcher(config.getCluster(), getHttpClient()));
+        return dispatcher.get(() -> {
+            Dispatcher d = new Dispatcher(config.getCluster(), getHttpClient());
+            eventBus.register(d);
+            return d;
+        });
     }
 
     public void close() {
+        eventBus.unregister(dispatcher);
+        config.close();
         main.stop();
         dispatcher.get().close();
         try {

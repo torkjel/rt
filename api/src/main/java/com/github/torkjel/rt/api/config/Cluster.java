@@ -1,7 +1,11 @@
 package com.github.torkjel.rt.api.config;
 
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -12,11 +16,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
+import lombok.extern.log4j.Log4j;
 
 @Getter
 @ToString
+@EqualsAndHashCode
+@Log4j
 public class Cluster {
 
     private final Map<String, String> apiNodes;
@@ -29,7 +37,7 @@ public class Cluster {
     public Cluster(
             @JsonProperty("api-nodes") Map<String, String> apiNodes,
             @JsonProperty("worker-nodes") Map<String, String> workerNodes,
-            @JsonProperty("length-of-time-slice") int lengthOfSlice,
+            @JsonProperty("length-of-time-slice") long lengthOfSlice,
             @JsonProperty("first-slice") String firstSlice,
             @JsonProperty("routing") List<Routing> routing) {
         this.apiNodes = apiNodes;
@@ -41,18 +49,38 @@ public class Cluster {
         this.routing = routing;
     }
 
-    public static Cluster parseResource(String resource) {
+    public static Cluster loadFromResource(String resource) {
+        File f = new File(resource);
+        Reader r = null;
         try {
-            return new ObjectMapper().readValue(
-                    new InputStreamReader(Config.class.getResourceAsStream(resource), "UTF-8"),
-                    Cluster.class);
+            if (f.exists() && f.isFile()) {
+                r = new FileReader(f);
+                log.info("Loading cluster config from file: " + f.getAbsolutePath());
+            } else {
+                InputStream is = Config.class.getResourceAsStream(resource);
+                if (is != null) {
+                    r = new InputStreamReader(is,  "UTF-8");
+                    log.info("Loading cluster config from classpath : " + resource);
+                }
+            }
+            if (r == null)
+                throw new RuntimeException("File not found: " + resource);
+
+            return new ObjectMapper().readValue(r, Cluster.class);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to parse config", e);
+            throw new RuntimeException("Failed to load config " + resource, e);
+        } finally {
+            if (r != null)
+                try {
+                    r.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
         }
     }
 
     public static Cluster loadDefault() {
-        return parseResource("/cluster.json");
+        return loadFromResource("/cluster.json");
     }
 
     public String getUrlFor(long timestamp, int routingKey) {
@@ -86,6 +114,21 @@ public class Cluster {
             }
         }
         return match;
+    }
+
+    public boolean hasChanged(Cluster that) {
+        return !(that.getApiNodes().equals(getApiNodes())
+                && that.getWorkerNodes().equals(getWorkerNodes())
+                && that.getRouting().equals(getRouting()));
+    }
+
+    public Cluster update(Cluster that) {
+        return new Cluster(
+                that.getApiNodes(),
+                that.getWorkerNodes(),
+                getLengthOfSlice(),
+                LocalDateTime.ofEpochSecond(getStartOfFirstSlice(), 0,  ZoneOffset.UTC).toString(),
+                that.getRouting());
     }
 
 }

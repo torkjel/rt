@@ -5,7 +5,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import org.asynchttpclient.AsyncCompletionHandler;
 import org.asynchttpclient.AsyncHttpClient;
@@ -79,26 +79,18 @@ public class WorkerClient {
                     });
     }
 
-    public boolean isIdle() {
-        return queuedQueries.get() == 0;
-    }
-
-    public void close() {
-        executor.shutdown();
-    }
-
-    public void retrieve(long slice, Consumer<HourStats> callback) {
+    public void retrieve(long slice, BiConsumer<String, HourStats> callback) {
 
         Optional<HourStats> cached = statsCache.get(slice);
         if (cached.isPresent()) {
-            callback.accept(cached.get());
+            callback.accept(baseUrl, cached.get());
         } else {
             queuedQueries.incrementAndGet();
             internalRetrieve(slice, callback);
         }
     }
 
-    private void internalRetrieve(long slice, Consumer<HourStats> callback) {
+    private void internalRetrieve(long slice, BiConsumer<String, HourStats> callback) {
 
         String url = baseUrl + "?slice=" + slice;
 
@@ -113,7 +105,7 @@ public class WorkerClient {
                         public Response onCompleted(Response response) throws Exception{
                             log.info("GOT " + url + " : " + response.getStatusCode() + " \n " +
                                     response.getResponseBody());
-                            callback.accept(HourStats.parse(response.getResponseBody()));
+                            callback.accept(baseUrl, HourStats.parse(response.getResponseBody()));
                             queuedQueries.decrementAndGet();
                             return response;
                         }
@@ -140,4 +132,13 @@ public class WorkerClient {
             t.printStackTrace();
         }
     }
+
+    public boolean isIdle() {
+        return queuedQueries.get() == 0;
+    }
+
+    public void close() {
+        executor.shutdown();
+    }
+
 }

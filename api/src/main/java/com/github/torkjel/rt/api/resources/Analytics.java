@@ -62,6 +62,21 @@ public class Analytics {
         log.info("GET /analytics DONE");
     }
 
+    @GET
+    @Path("/perworker")
+    public void retrievePerWorker(
+            @Suspended AsyncResponse response,
+            @QueryParam("timestamp") Long timestamp) {
+
+        log.info("GET /analytics/perworker");
+
+        dispatcher().retrieveDetailed(
+                timestamp,
+                stats -> response.resume(stats));
+
+        log.info("GET /analytics/perworker DONE");
+    }
+
     private Dispatcher dispatcher() {
         return Services.instance().getDispatcher();
     }

@@ -10,7 +10,7 @@
     },
 
     "length-of-time-slice" : 10,
-    "first-slice" : "system",
+    "first-slice" : "2017-05-20T00:00:00",
 
     "routing" : [
         { "slice" : 0, "nodes" : ["0"] },

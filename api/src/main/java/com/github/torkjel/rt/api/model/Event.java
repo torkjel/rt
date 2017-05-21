@@ -36,4 +36,11 @@ public class Event {
     public Event anonymized(long slice) {
         return new Event(0, slice, hash(slice, user), action);
     }
+
+    public int getRoutingKey() {
+        // TODO: this may be naive.
+        // Don't know if this routing key MOD the number of workers
+        // will result in an even distribution.
+        return user.hashCode();
+    }
 }
