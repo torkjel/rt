@@ -62,6 +62,9 @@ public class MultipleSlicesTest {
         for (int n = 0; n < 10; n++) {
             verifyStats(5, sliceLength, startTime + sliceLength * n);
         }
+
+        com.github.torkjel.rt.api.Services.instance().blockUtilIdle();
+
     }
 
     private void verifyStats(int userCount, long eventCount, long timestamp) throws UnirestException {
@@ -75,6 +78,10 @@ public class MultipleSlicesTest {
         HttpRequest getDetailed = get("http://localhost:8000/analytics/perworker?timestamp=" + timestamp);
         HttpResponse<String> detailedresponse = getDetailed.asString();
         System.out.println(detailedresponse.getBody());
+
+        HttpRequest getAll = get("http://localhost:8000/analytics/allslices?timestamp=" + timestamp);
+        HttpResponse<String> allResponse = getAll.asString();
+        System.out.println(allResponse.getBody());
 
     }
 

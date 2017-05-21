@@ -5,11 +5,13 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
 @Getter
 @ToString
+@EqualsAndHashCode
 public class Routing {
     private final int slice;
     private final List<String> nodes;

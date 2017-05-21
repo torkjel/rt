@@ -1,0 +1,21 @@
+{
+    "api-nodes" : {
+        "0" : "http://localhost:8000/analytics",
+        "1" : "http://localhost:8001/analytics"
+    },
+
+    "worker-nodes" : {
+        "0" : "http://localhost:9000/worker",
+        "1" : "http://localhost:9001/worker",
+        "2" : "http://localhost:9002/worker",
+        "3" : "http://localhost:9003/worker"
+    },
+
+    "length-of-time-slice" : 60,
+    "first-slice" : "system",
+
+    "routing" : [ { "slice" : 0, "nodes" : ["0"] },
+		  { "slice" : 1, "nodes" : ["0", "1"] },
+		  { "slice" : 2, "nodes" : ["0", "1", "2"] },
+		  { "slice" : 3, "nodes" : ["0", "1", "2", "3"] } ]
+}

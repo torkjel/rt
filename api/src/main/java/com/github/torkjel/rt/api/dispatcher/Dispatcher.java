@@ -5,7 +5,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -38,13 +40,13 @@ public class Dispatcher implements AutoCloseable {
         getWorkerByHash(e.getTimestamp(), anonymized.getRoutingKey()).submit(anonymized);
     }
 
-    public void retrieve(long timestamp, Consumer<HourStats> callback) {
+    public void retrieve(long timestamp, BiConsumer<Long, HourStats> callback) {
         List<WorkerClient> validWorkers = getActiveWorkers(timestamp);
 
         AtomicInteger count = new AtomicInteger(validWorkers.size());
         List<HourStats> stats = Collections.synchronizedList(new ArrayList<>());
 
-        log.debug("Retrieving from " + count + " workers");
+        log.debug("Retrieving from " + count + " workers " + cluster.getSliceNumber(timestamp));
 
         BiConsumer<String, HourStats> workerCallback = (url, hs) -> {
             log.debug("Got results from worker " + url + ": " + hs);
@@ -52,7 +54,7 @@ public class Dispatcher implements AutoCloseable {
             if (count.decrementAndGet() == 0) {
                 HourStats aggregated = stats.stream().reduce(HourStats::combine).orElse(HourStats.empty());
                 log.debug("Aggregated: " + aggregated);
-                callback.accept(aggregated);
+                callback.accept(timestamp, aggregated);
             }
         };
 
@@ -84,6 +86,32 @@ public class Dispatcher implements AutoCloseable {
 
         validWorkers.forEach(wc -> wc.retrieve(cluster.getSliceNumber(timestamp), workerCallback));
     }
+
+    public void retrieveAllSlices(long timestamp, Consumer<String> callback) {
+        long start = 0;
+        long end = cluster.getSliceNumber(timestamp);
+
+        AtomicLong count = new AtomicLong(end - start + 1);
+        Map<Long, HourStats> stats = Collections.synchronizedMap(new TreeMap<>());
+
+        BiConsumer<Long, HourStats> sliceCallback = (sliceTimestamp, hs) -> {
+            stats.put(sliceTimestamp, hs);
+            if (count.decrementAndGet() <= 0) {
+                StringBuilder sb = new StringBuilder();
+                stats.forEach((u, h) -> sb
+                        .append("slice,").append(cluster.getSliceNumber(u)).append("\n")
+                        .append(h.toString()));
+                callback.accept(sb.toString());
+            }
+        };
+
+        if (end >= start)
+            for (long n = start; n <= end; n++)
+                retrieve(cluster.getStartOfFirstSlice() + n * cluster.getLengthOfSlice(), sliceCallback);
+        else
+            callback.accept("");
+    }
+
 
     private List<WorkerClient> getActiveWorkers(long timestamp) {
         return cluster.getUrlsFor(timestamp)

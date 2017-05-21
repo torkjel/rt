@@ -113,6 +113,11 @@ public class Cluster {
                 match = r;
             }
         }
+        if (match == null) {
+            log.debug("No routing for timestamp: " + timestamp + ". Returning routing for first slice");
+            return findRouting(startOfFirstSlice);
+        }
+
         return match;
     }
 

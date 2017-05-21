@@ -8,6 +8,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.Suspended;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import com.github.torkjel.rt.api.Services;
@@ -57,7 +58,7 @@ public class Analytics {
 
         dispatcher().retrieve(
                 timestamp,
-                stats -> response.resume(stats.toString()));
+                (ts, stats) -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN)));
 
         log.info("GET /analytics DONE");
     }
@@ -72,10 +73,28 @@ public class Analytics {
 
         dispatcher().retrieveDetailed(
                 timestamp,
-                stats -> response.resume(stats));
+                stats -> response.resume(Response.ok(stats, MediaType.TEXT_PLAIN)));
 
         log.info("GET /analytics/perworker DONE");
     }
+
+    @GET
+    @Path("/allslices")
+    public void retrieveAllSlicer(@Suspended AsyncResponse response,
+            @QueryParam("timestamp") Long timestamp) {
+
+        log.info("GET /analytics/allslices");
+
+        if (timestamp == null)
+            timestamp = System.currentTimeMillis() / 1000;
+
+        dispatcher().retrieveAllSlices(
+                timestamp,
+                stats -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN)));
+
+        log.info("GET /analytics/allslices DONE");
+    }
+
 
     private Dispatcher dispatcher() {
         return Services.instance().getDispatcher();
