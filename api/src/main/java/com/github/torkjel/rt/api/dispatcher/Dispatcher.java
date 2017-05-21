@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import org.asynchttpclient.AsyncHttpClient;
 
@@ -22,29 +21,30 @@ import lombok.extern.log4j.Log4j;
 public class Dispatcher implements AutoCloseable {
 
     private final Cluster cluster;
-    private final AsyncHttpClient httpClient;
 
     private final Map<String, WorkerClient> clients = new HashMap<>();
 
     public Dispatcher(Cluster cluster, AsyncHttpClient httpClient) {
         this.cluster = cluster;
-        this.httpClient = httpClient;
+        for (String url : cluster.getWorkerNodes().values())
+            clients.put(url, new WorkerClient(httpClient, url, cluster));
     }
 
     public void submit(Event e) {
-        getWorkerByHash(e.getUser().charAt(0)).submit(e);
+        Event anonymized = e.anonymized(cluster.getSliceNumber(e.getTimestamp()));
+        getWorkerByHash(e.getTimestamp(), anonymized.getUser().charAt(0)).submit(anonymized);
     }
 
     public void retrieve(long timestamp, Consumer<HourStats> callback) {
 
         log.info("Retrieving");
 
-        List<WorkerClient> validWorkers = getValidWorkers();
+        List<WorkerClient> validWorkers = getActiveWorkers(timestamp);
 
         AtomicInteger count = new AtomicInteger(validWorkers.size());
         List<HourStats> stats = Collections.synchronizedList(new ArrayList<>());
 
-        log.info("Retrieving" + count);
+        log.info("Retrieving from " + count + " workers");
 
         Consumer<HourStats> workerCallback = (hs) -> {
             log.info("Got results from worker: " + hs);
@@ -57,36 +57,40 @@ public class Dispatcher implements AutoCloseable {
             }
         };
 
-        validWorkers.forEach(wc -> wc.retrieve(timestamp, workerCallback));
+        validWorkers.forEach(wc -> wc.retrieve(cluster.getSliceNumber(timestamp), workerCallback));
     }
 
-    private List<WorkerClient> getValidWorkers() {
-        return IntStream.range(0, cluster.getRouting().size())
-                .mapToObj(this::getWorkerByIndex)
+    private List<WorkerClient> getActiveWorkers(long timestamp) {
+        return cluster.getUrlsFor(timestamp)
+                .stream()
+                .map(url -> clients.get(url))
                 .collect(Collectors.toList());
     }
 
-    private WorkerClient getWorkerByHash(int hash) {
-        return getWorkerByIndex(hash % cluster.getRouting().size());
-    }
-
-    private WorkerClient getWorkerByIndex(int index) {
-        String url = cluster.getUrlFor(index);
-        WorkerClient client = clients.get(url);
-        if (client == null)
-            clients.put(url, client = new WorkerClient(httpClient, url));
-        return client;
+    private WorkerClient getWorkerByHash(long timestamp, int hash) {
+        return clients.get(cluster.getUrlFor(timestamp, hash));
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         blockUtilIdle();
         clients.values().forEach(WorkerClient::close);
     }
 
-    public void blockUtilIdle() throws Exception {
-        while (clients.values().stream().map(WorkerClient::isIdle).anyMatch(idle -> !idle))
-            Thread.sleep(10);
+    public void blockUtilIdle() {
+        while (clients.values().stream().map(WorkerClient::isIdle).anyMatch(idle -> !idle)) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                // continue loop
+            }
+        }
     }
+
+    public String toString() {
+        return clients.toString();
+    }
+
 
 }

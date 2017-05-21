@@ -16,28 +16,28 @@ public class PersistentStorageService implements StorageService, AutoCloseable {
 
     private final Map<Long, Map<String, UserStats>> data = new HashMap<>();
 
-    private final Map<Long, HourStats> summaries;
+    private final Map<Long, SliceStats> summaries;
 
     @SuppressWarnings("unchecked")
     public PersistentStorageService(File dataFile) {
         db = DBMaker.fileDB(dataFile).fileMmapEnableIfSupported().make();
-        summaries = (Map<Long, HourStats>)db.hashMap("summaries").createOrOpen();
+        summaries = (Map<Long, SliceStats>)db.hashMap("summaries").createOrOpen();
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public synchronized HourStats store(Event event) {
+    public synchronized SliceStats store(Event event) {
         log.info("store start");
-        long startOfHour = startOfHour(event.getTimestamp());
-        Map<String, UserStats> hourData = data.get(startOfHour);
-        if (hourData == null) {
-            hourData = (Map<String, UserStats>)db.hashMap("data-" + startOfHour).createOrOpen();
-            data.put(startOfHour, hourData);
+        long slice = event.getSlice();
+        Map<String, UserStats> sliceData = data.get(slice);
+        if (sliceData == null) {
+            sliceData = (Map<String, UserStats>)db.hashMap("data-" + slice).createOrOpen();
+            data.put(slice, sliceData);
         }
 
-        HourStats summary = getSummary(startOfHour);
+        SliceStats summary = getSummary(slice);
 
-        UserStats userStats = hourData.get(event.getUser());
+        UserStats userStats = sliceData.get(event.getUser());
 
         if (userStats == null) {
             userStats = UserStats.empty();
@@ -45,9 +45,9 @@ public class PersistentStorageService implements StorageService, AutoCloseable {
         } else {
             summary = summary.addEventForKnownUser(event);
         }
-        hourData.put(event.getUser(), userStats.udpate(event));
+        sliceData.put(event.getUser(), userStats.udpate(event));
 
-        updateSummary(startOfHour, summary);
+        updateSummary(slice, summary);
         log.info("store end");
         return summary;
     }
@@ -63,37 +63,32 @@ public class PersistentStorageService implements StorageService, AutoCloseable {
     }
 
     @Override
-    public synchronized HourStats retrieve(long timestamp) {
-        return getSummary(startOfHour(timestamp));
+    public synchronized SliceStats retrieve(long slice) {
+        return getSummary(slice);
     }
 
     // not used for now.
-    public synchronized HourStats retrieveFull(long timestamp) {
-        Map<String, UserStats> hourData = data.get(startOfHour(timestamp));
-        if (hourData != null) {
-            return hourData.entrySet()
+    public synchronized SliceStats retrieveFull(long slice) {
+        Map<String, UserStats> sliceData = data.get(slice);
+        if (sliceData != null) {
+            return sliceData.entrySet()
                 .stream()
-                .map(e -> new HourStats(e.getValue()))
+                .map(e -> new SliceStats(e.getValue()))
                 .reduce((a, b) -> a.combine(b))
-                .orElse(HourStats.empty());
+                .orElse(SliceStats.empty());
         } else
-            return HourStats.empty();
+            return SliceStats.empty();
     }
 
-    private synchronized HourStats getSummary(long startOfHour) {
-        HourStats summary = summaries.get(startOfHour);
+    private synchronized SliceStats getSummary(long slice) {
+        SliceStats summary = summaries.get(slice);
         if (summary == null)
-            summaries.put(startOfHour, summary = HourStats.empty());
+            summaries.put(slice, summary = SliceStats.empty());
         return summary;
     }
 
-    private void updateSummary(long startOfHour, HourStats updated) {
-        summaries.put(startOfHour, updated);
-    }
-
-    private long startOfHour(long ts) {
-        // strip minutes and seconds.
-        return (ts / 3600) * 3600;
+    private void updateSummary(long slice, SliceStats updated) {
+        summaries.put(slice, updated);
     }
 
     @Override

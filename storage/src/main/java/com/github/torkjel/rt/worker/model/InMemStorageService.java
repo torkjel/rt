@@ -7,33 +7,33 @@ public class InMemStorageService implements StorageService {
 
     private Map<Long, Map<String, UserStats>> data = new HashMap<>();
 
-    private Map<Long, HourStats> summaries = new HashMap<>();
+    private Map<Long, SliceStats> summaries = new HashMap<>();
 
     @Override
-    public synchronized HourStats store(Event event) {
-        long startOfHour = startOfHour(event.getTimestamp());
-        Map<String, UserStats> hourData = data.get(startOfHour);
-        if (hourData == null)
-            data.put(startOfHour, hourData = new HashMap<>());
+    public synchronized SliceStats store(Event event) {
+        long slice = event.getSlice();
+        Map<String, UserStats> sliceData = data.get(slice);
+        if (sliceData == null)
+            data.put(slice, sliceData = new HashMap<>());
 
-        HourStats summary = getSummary(startOfHour);
+        SliceStats summary = getSummary(slice);
 
-        UserStats userStats = hourData.get(event.getUser());
+        UserStats userStats = sliceData.get(event.getUser());
         if (userStats == null) {
             userStats = UserStats.empty();
             summary = summary.addEventForNewUser(event);
         } else {
             summary = summary.addEventForKnownUser(event);
         }
-        hourData.put(event.getUser(), userStats);
+        sliceData.put(event.getUser(), userStats);
 
-        updateSummary(startOfHour, summary);
+        updateSummary(slice, summary);
         return summary;
     }
 
     @Override
-    public synchronized HourStats retrieve(long timestamp) {
-        return getSummary(startOfHour(timestamp));
+    public synchronized SliceStats retrieve(long slice) {
+        return getSummary(slice);
     }
 
     @Override
@@ -43,31 +43,26 @@ public class InMemStorageService implements StorageService {
     }
 
     // not used for now.
-    public synchronized HourStats retrieveFull(long timestamp) {
-        Map<String, UserStats> hourData = data.get(startOfHour(timestamp));
-        if (hourData != null) {
-            return hourData.entrySet()
+    public synchronized SliceStats retrieveFull(long slice) {
+        Map<String, UserStats> sliceData = data.get(slice);
+        if (sliceData != null) {
+            return sliceData.entrySet()
                 .stream()
-                .map(e -> new HourStats(e.getValue()))
+                .map(e -> new SliceStats(e.getValue()))
                 .reduce((a, b) -> a.combine(b))
-                .orElse(HourStats.empty());
+                .orElse(SliceStats.empty());
         } else
-            return HourStats.empty();
+            return SliceStats.empty();
     }
 
-    private HourStats getSummary(long startOfHour) {
-        HourStats summary = summaries.get(startOfHour);
+    private SliceStats getSummary(long slice) {
+        SliceStats summary = summaries.get(slice);
         if (summary == null)
-            summaries.put(startOfHour, summary = HourStats.empty());
+            summaries.put(slice, summary = SliceStats.empty());
         return summary;
     }
 
-    private void updateSummary(long startOfHour, HourStats updated) {
-        summaries.put(startOfHour, updated);
-    }
-
-    private long startOfHour(long ts) {
-        // strip minutes and seconds.
-        return (ts / 3600) * 3600;
+    private void updateSummary(long slice, SliceStats updated) {
+        summaries.put(slice, updated);
     }
 }

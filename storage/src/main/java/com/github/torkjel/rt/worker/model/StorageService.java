@@ -2,9 +2,9 @@ package com.github.torkjel.rt.worker.model;
 
 public interface StorageService extends AutoCloseable {
 
-    HourStats store(Event event);
+    SliceStats store(Event event);
 
-    HourStats retrieve(long timestamp);
+    SliceStats retrieve(long slice);
 
     public void clear();
 

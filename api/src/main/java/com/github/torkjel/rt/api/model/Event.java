@@ -1,27 +1,28 @@
 package com.github.torkjel.rt.api.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.ToString;
 
 import static com.github.torkjel.rt.api.utils.HashUtil.hash;
 
-import com.github.torkjel.rt.api.utils.TimeUtils;
-
 @Data
 @ToString
+@AllArgsConstructor
 public class Event {
     private final long timestamp;
-    private final long hourStart;
+    private final long slice;
     private final String user;
     private final String action;
 
+    public long getTimestamp() {
+        return timestamp;
+    }
+
     @Builder
     private Event(long timestamp, String user, String action) {
-        this.timestamp = timestamp;
-        this.hourStart = TimeUtils.startOfHour(timestamp);
-        this.user = user;
-        this.action = action;
+        this(timestamp, -1, user, action);
     }
 
     public boolean isClick() {
@@ -29,14 +30,10 @@ public class Event {
     }
 
     public String toUrlQueryPart() {
-        return "timestamp=" + timestamp + "&user=" + user + "&" + action;
+        return "slice=" + slice + "&user=" + user + "&" + action;
     }
 
-    public Event anonymized() {
-        return Event.builder()
-                .timestamp(timestamp)
-                .action(action)
-                .user(hash(hourStart, user))
-                .build();
+    public Event anonymized(long slice) {
+        return new Event(0, slice, hash(slice, user), action);
     }
 }

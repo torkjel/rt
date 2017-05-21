@@ -7,14 +7,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import org.asynchttpclient.*;
+import org.asynchttpclient.AsyncCompletionHandler;
+import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.Response;
 import org.asynchttpclient.exception.TooManyConnectionsException;
 import org.asynchttpclient.exception.TooManyConnectionsPerHostException;
 
+import com.github.torkjel.rt.api.config.Cluster;
 import com.github.torkjel.rt.api.model.Event;
 import com.github.torkjel.rt.api.model.HourStats;
 import com.github.torkjel.rt.api.utils.Cache;
-import com.github.torkjel.rt.api.utils.TimeUtils;
 
 import lombok.extern.log4j.Log4j;
 
@@ -31,7 +33,7 @@ public class WorkerClient {
 
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    public WorkerClient(AsyncHttpClient client, String url) {
+    public WorkerClient(AsyncHttpClient client, String url, Cluster cluster) {
         this.baseUrl = url;
         this.asyncHttpClient = client;
     }
@@ -43,37 +45,37 @@ public class WorkerClient {
         int queueSize = queuedQueries.get();
         if (queueSize > maxQueue.get()) {
             maxQueue.set(queueSize);
-            log.warn("Max queue: " + queueSize + " " + baseUrl);
+            log.warn("Max queue: " + queueSize + ", url: " + baseUrl);
         }
 
+        internalSubmit(e);
+    }
+
+    private void internalSubmit(Event e) {
         String url = baseUrl + "?" + e.toUrlQueryPart();
         log.info(this + "POSTing " + url);
 
         asyncHttpClient
             .preparePost(url)
             .execute(
-                    new AsyncCompletionHandler<Response>(){
+                    new AsyncCompletionHandler<Response>() {
+
                         @Override
                         public Response onCompleted(Response response) throws Exception{
-                            log.info("POSTed " + url + " : " + response.getStatusCode() + "\n" + response.getResponseBody());
-                            if (response.getStatusCode() == 200)
-                                statsCache.update(e.getHourStart(), HourStats.parse(response.getResponseBody()));
+                            log.info("POSTed " + url + " : " + response.getStatusCode() + "\n" +
+                                    response.getResponseBody());
+                            if (response.getStatusCode() == 200) {
+                                statsCache.update(e.getSlice(), HourStats.parse(response.getResponseBody()));
+                            }
                             queuedQueries.decrementAndGet();
                             return response;
                         }
+
                         @Override
                         public void onThrowable(Throwable t){
-                            if (t instanceof TooManyConnectionsException
-                                    || t instanceof TooManyConnectionsPerHostException) {
-                                log.warn("Too many connections. Rescheduling. Queue = " + queuedQueries.get() + ", url = " + baseUrl);
-                                executor.schedule(() -> WorkerClient.this.submit(e), queuedQueries.get() * 3, TimeUnit.MILLISECONDS);
-                            } else {
-                                // TODO: metrics should report errors.
-                                log.error("Request " + url + " failed", t);
-                                t.printStackTrace();
-                            }
-                            queuedQueries.decrementAndGet();
+                            handleInternalError(t, url, () -> internalSubmit(e));
                         }
+
                     });
     }
 
@@ -85,33 +87,57 @@ public class WorkerClient {
         executor.shutdown();
     }
 
-    public void retrieve(long timestamp, Consumer<HourStats> callback) {
+    public void retrieve(long slice, Consumer<HourStats> callback) {
 
-        String url = baseUrl + "?timestamp=" + timestamp;
-
-        log.info("GETing " + url);
-
-        Optional<HourStats> cached = statsCache.get(TimeUtils.startOfHour(timestamp));
+        Optional<HourStats> cached = statsCache.get(slice);
         if (cached.isPresent()) {
             callback.accept(cached.get());
         } else {
-            asyncHttpClient
-                .prepareGet(url)
-                .execute(
-                        new AsyncCompletionHandler<Response>(){
-                            @Override
-                            public Response onCompleted(Response response) throws Exception{
-                                log.info("GOT " + url + " : " + response.getStatusCode() + " \n " + response.getResponseBody());
-                                callback.accept(HourStats.parse(response.getResponseBody()));
-                                return response;
-                            }
-                            @Override
-                            public void onThrowable(Throwable t){
-                                // TODO: metrics should report errors.
-                                log.error("Request " + url + " failed", t);
-                            }
-                        });
+            queuedQueries.incrementAndGet();
+            internalRetrieve(slice, callback);
         }
     }
 
+    private void internalRetrieve(long slice, Consumer<HourStats> callback) {
+
+        String url = baseUrl + "?slice=" + slice;
+
+        log.info("GETing " + url);
+
+        asyncHttpClient
+            .prepareGet(url)
+            .execute(
+                    new AsyncCompletionHandler<Response>() {
+
+                        @Override
+                        public Response onCompleted(Response response) throws Exception{
+                            log.info("GOT " + url + " : " + response.getStatusCode() + " \n " +
+                                    response.getResponseBody());
+                            callback.accept(HourStats.parse(response.getResponseBody()));
+                            queuedQueries.decrementAndGet();
+                            return response;
+                        }
+
+                        @Override
+                        public void onThrowable(Throwable t){
+                            handleInternalError(t, url, () -> internalRetrieve(slice, callback));
+                        }
+                    });
+    }
+
+    private void handleInternalError(Throwable t, String url, Runnable retry) {
+        if (t instanceof TooManyConnectionsException
+                || t instanceof TooManyConnectionsPerHostException) {
+            log.warn("Too many connections. Rescheduling. " +
+                    "Queue = " + queuedQueries.get() + ", " +
+                    "Url = " + baseUrl);
+            executor.schedule(retry,
+                    queuedQueries.get() * 3,
+                    TimeUnit.MILLISECONDS);
+        } else {
+            // TODO: metrics should report errors.
+            log.error("Request " + url + " failed", t);
+            t.printStackTrace();
+        }
+    }
 }

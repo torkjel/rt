@@ -27,7 +27,7 @@ public class Worker {
     private static AtomicInteger submitCount = new AtomicInteger(0);
 
     @POST
-    public Response submit(@QueryParam("timestamp") Long ts,
+    public Response submit(@QueryParam("slice") Long slice,
             @QueryParam("user") String user,
             @QueryParam("click") String click,
             @QueryParam("impression") String impression,
@@ -40,7 +40,7 @@ public class Worker {
 
         String action = click != null ? "click" : "impression";
 
-        Event event = Event.builder().action(action).timestamp(ts).user(user).build();
+        Event event = Event.builder().action(action).slice(slice).user(user).build();
 
         return Response
                 .ok(storageService(uriInfo).store(event).toString())
@@ -51,10 +51,10 @@ public class Worker {
     @GET
     public void retrieve(
             @Suspended AsyncResponse response,
-            @QueryParam("timestamp") Long ts,
+            @QueryParam("slice") Long slice,
             @Context UriInfo uriInfo) {
 
-        response.resume(storageService(uriInfo).retrieve(ts).toString());
+        response.resume(storageService(uriInfo).retrieve(slice).toString());
     }
 
     private StorageService storageService(UriInfo uriInfo) {

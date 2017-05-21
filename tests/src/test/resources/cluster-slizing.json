@@ -1,7 +1,6 @@
 {
     "api-nodes" : {
-        "0" : "http://localhost:8000/analytics",
-        "1" : "http://localhost:8001/analytics"
+        "0" : "http://localhost:8000/analytics"
     },
 
     "worker-nodes" : {
@@ -10,7 +9,7 @@
         "2" : "http://localhost:9002/worker"
     },
 
-    "length-of-time-slice" : 3600,
+    "length-of-time-slice" : 10,
     "first-slice" : "system",
 
     "routing" : [

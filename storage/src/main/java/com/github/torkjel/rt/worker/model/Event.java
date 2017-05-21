@@ -8,7 +8,7 @@ import lombok.ToString;
 @Builder
 @ToString
 public class Event {
-    private final long timestamp;
+    private final long slice;
     private final String user;
     private final String action;
 

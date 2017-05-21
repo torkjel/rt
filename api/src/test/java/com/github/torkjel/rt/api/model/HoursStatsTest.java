@@ -5,7 +5,7 @@ import org.junit.Test;
 import static org.assertj.core.api.Assertions.*;
 
 public class HoursStatsTest {
-    
+
     @Test
     public void testSerializeParseRoundtrip() {
         HourStats stats = HourStats.builder()
@@ -15,6 +15,6 @@ public class HoursStatsTest {
             .build();
 
         assertThat(HourStats.parse(stats.toString())).isEqualTo(stats);
-        
+
     }
 }

@@ -9,5 +9,8 @@
         "2" : "http://localhost:9002/worker"
     },
 
-    "routing" : ["0", "1", "2"]
+    "length-of-time-slice" : 3600,
+    "first-slice" : "system",
+
+    "routing" : [ { "slice" : 0, "nodes" : ["0", "1", "2"] } ]
 }

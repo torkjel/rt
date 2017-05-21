@@ -7,38 +7,38 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class HourStats implements Serializable {
+public class SliceStats implements Serializable {
 
     private final long uniqueUsers;
     private final long clicks;
     private final long impressions;
 
-    public static HourStats empty() {
-        return new HourStats(0, 0, 0);
+    public static SliceStats empty() {
+        return new SliceStats(0, 0, 0);
     }
 
-    public HourStats(UserStats userStats) {
+    public SliceStats(UserStats userStats) {
         uniqueUsers = 1;
         clicks = userStats.getClicks();
         impressions = userStats.getImpressions();
     }
 
-    public HourStats combine(HourStats that) {
-        return new HourStats(
+    public SliceStats combine(SliceStats that) {
+        return new SliceStats(
                 this.uniqueUsers + that.getUniqueUsers(),
                 this.clicks + that.getClicks(),
                 this.impressions + that.getImpressions());
     }
 
-    public HourStats addEventForNewUser(Event event) {
-        return new HourStats(
+    public SliceStats addEventForNewUser(Event event) {
+        return new SliceStats(
                 this.uniqueUsers + 1,
                 this.clicks + ("click".equals(event.getAction()) ? 1 : 0),
                 this.impressions + ("impression".equals(event.getAction()) ? 1 : 0));
     }
 
-    public HourStats addEventForKnownUser(Event event) {
-        return new HourStats(
+    public SliceStats addEventForKnownUser(Event event) {
+        return new SliceStats(
                 this.uniqueUsers,
                 this.clicks + ("click".equals(event.getAction()) ? 1 : 0),
                 this.impressions + ("impression".equals(event.getAction()) ? 1 : 0));

@@ -40,8 +40,7 @@ public class Analytics {
                 .action(click != null ? "click" : "impression")
                 .timestamp(ts)
                 .user(user)
-                .build()
-                .anonymized();
+                .build();
 
         dispatcher().submit(event);
 

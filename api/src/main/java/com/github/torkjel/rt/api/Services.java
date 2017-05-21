@@ -1,6 +1,5 @@
 package com.github.torkjel.rt.api;
 
-import java.util.Arrays;
 import java.util.function.Supplier;
 
 import org.asynchttpclient.AsyncHttpClient;
@@ -9,7 +8,6 @@ import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 
 import com.github.torkjel.rt.api.config.Config;
 import com.github.torkjel.rt.api.dispatcher.Dispatcher;
-import com.github.torkjel.rt.api.dispatcher.WorkerClient;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -43,15 +41,19 @@ public class Services implements AutoCloseable {
         return dispatcher.get(() -> new Dispatcher(config.getCluster(), getHttpClient()));
     }
 
-    public void close() throws Exception {
+    public void close() {
         main.stop();
         dispatcher.get().close();
-        httpClient.get().close();
+        try {
+            httpClient.get().close();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to close http client", e);
+        }
         dispatcher.reset();
         httpClient.reset();
     }
 
-    public void blockUtilIdle() throws Exception {
+    public void blockUtilIdle() {
         dispatcher.get().blockUtilIdle();
     }
 

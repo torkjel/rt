@@ -25,32 +25,37 @@ public class AnalyticsTest {
     }
 
     @After
-    public void shutDown() throws Exception {
+    public void shutDown() {
         com.github.torkjel.rt.api.Services.instance().close();
         com.github.torkjel.rt.worker.Services.instance().clearData();
         com.github.torkjel.rt.worker.Services.instance().close();
     }
 
     @Test
-    public void testNull() throws Exception{
-        HttpRequest get = get("http://localhost:8000/analytics?timestamp=1495135798");
+    public void testNull() throws Exception {
+
+
+        HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + now());
         HttpResponse<String> response = get.asString();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getBody()).isEqualTo(new HourStats(0, 0, 0).toString());
     }
 
     @Test
-    public void testSimple() throws Exception{
-        HttpRequest post = post("http://localhost:8000/analytics?timestamp=1495135798&user=foo&impression");
+    public void testSimple() throws Exception {
+        HttpRequest post = post("http://localhost:8000/analytics?timestamp=" + now() + "&user=foo&impression");
         assertThat(post.asBinary().getStatus()).isEqualTo(202);
 
         com.github.torkjel.rt.api.Services.instance().blockUtilIdle();
 
-        HttpRequest get = get("http://localhost:8000/analytics?timestamp=1495135798");
+        HttpRequest get = get("http://localhost:8000/analytics?timestamp=" + now());
         HttpResponse<String> response = get.asString();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getBody()).isEqualTo(new HourStats(1, 0, 1).toString());
     }
 
+    private long now() {
+        return System.currentTimeMillis() / 1000;
+    }
 }
 

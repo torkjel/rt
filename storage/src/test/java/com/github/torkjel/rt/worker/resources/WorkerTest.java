@@ -6,7 +6,7 @@ import org.junit.Test;
 
 import com.github.torkjel.rt.worker.WorkerMain;
 import com.github.torkjel.rt.worker.Services;
-import com.github.torkjel.rt.worker.model.HourStats;
+import com.github.torkjel.rt.worker.model.SliceStats;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.request.HttpRequest;
 
@@ -18,7 +18,8 @@ public class WorkerTest {
 
     @After
     public void shutDown() {
-        Services.instance().getMain().stop();
+        Services.instance().clearData();
+        Services.instance().close();
     }
 
     @Before
@@ -29,21 +30,21 @@ public class WorkerTest {
 
     @Test
     public void testNull() throws Exception{
-        HttpRequest get = get("http://localhost:9000/worker?timestamp=1495135798");
+        HttpRequest get = get("http://localhost:9000/worker?slice=1");
         HttpResponse<String> response = get.asString();
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getBody()).isEqualTo(new HourStats(0, 0, 0).toString());
+        assertThat(response.getBody()).isEqualTo(new SliceStats(0, 0, 0).toString());
     }
 
     @Test
     public void testSimple() throws Exception{
-        HttpRequest post = post("http://localhost:9000/worker?timestamp=1495135798&user=foo&impression");
-        assertThat(post.asBinary().getStatus()).isEqualTo(202);
+        HttpRequest post = post("http://localhost:9000/worker?slice=1&user=foo&impression");
+        assertThat(post.asBinary().getStatus()).isEqualTo(200);
 
-        HttpRequest get = get("http://localhost:9000/worker?timestamp=1495135798");
+        HttpRequest get = get("http://localhost:9000/worker?slice=1");
         HttpResponse<String> response = get.asString();
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getBody()).isEqualTo(new HourStats(1, 0, 1).toString());
+        assertThat(response.getBody()).isEqualTo(new SliceStats(1, 0, 1).toString());
     }
 
 }
