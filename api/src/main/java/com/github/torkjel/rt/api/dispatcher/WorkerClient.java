@@ -105,7 +105,9 @@ public class WorkerClient {
                         public Response onCompleted(Response response) throws Exception{
                             log.info("GOT " + url + " : " + response.getStatusCode() + " \n " +
                                     response.getResponseBody());
-                            callback.accept(baseUrl, HourStats.parse(response.getResponseBody()));
+                            HourStats stats = HourStats.parse(response.getResponseBody());
+                            statsCache.update(slice, stats);
+                            callback.accept(baseUrl, stats);
                             queuedQueries.decrementAndGet();
                             return response;
                         }

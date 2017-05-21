@@ -25,7 +25,7 @@ public class WorkerTest {
     @Before
     public void setUp() throws Exception {
         WorkerMain.main(new String[] {"0"});
-        Thread.sleep(500);
+        Thread.sleep(1000);
     }
 
     @Test

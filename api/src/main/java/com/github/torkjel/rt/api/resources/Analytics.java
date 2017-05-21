@@ -58,7 +58,7 @@ public class Analytics {
 
         dispatcher().retrieve(
                 timestamp,
-                (ts, stats) -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN)));
+                (ts, stats) -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN).build()));
 
         log.info("GET /analytics DONE");
     }
@@ -73,7 +73,7 @@ public class Analytics {
 
         dispatcher().retrieveDetailed(
                 timestamp,
-                stats -> response.resume(Response.ok(stats, MediaType.TEXT_PLAIN)));
+                stats -> response.resume(Response.ok(stats, MediaType.TEXT_PLAIN).build()));
 
         log.info("GET /analytics/perworker DONE");
     }
@@ -90,7 +90,7 @@ public class Analytics {
 
         dispatcher().retrieveAllSlices(
                 timestamp,
-                stats -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN)));
+                stats -> response.resume(Response.ok(stats.toString(), MediaType.TEXT_PLAIN).build()));
 
         log.info("GET /analytics/allslices DONE");
     }

@@ -13,7 +13,7 @@ public class Config {
 
     private static final int BASE_PORT = 9000;
 
-    private static final File DATA_DIR = new File(System.getProperty("user.home"), "tapad-rt");
+    private static final File DATA_DIR = new File(System.getProperty("user.home"), "rt-data");
 
     @Singular
     private List<Integer> ports;
