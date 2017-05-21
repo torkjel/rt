@@ -116,6 +116,12 @@ The current implementation uses [MapDB](http://www.mapdb.org/) to store data in 
 data store, preferrable one that provides redundant storage. [CouchDB](http://couchdb.apache.org/) or something similar comes to mind. Note that the system is 
 especially designed so that each worker operate on independent subsets of data, so connecting them to one shared database cluster may not be the best idea.
 
+### Lombok
+
+[Lombok](https://projectlombok.org/) is a library that supports replacing lots of the boilerplate that usually comes with Java with simple annotations. Very handly, but it also means that the code will look like gibberish to your IDE unless you have the plugin installed. 
+
+I mostly use it to initialise loggers, and generate getters, setters, hashcode/equals and builders for java beans. 
+
 ## Try it
 
 Build with maven
