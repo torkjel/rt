@@ -80,13 +80,13 @@ Processing an event is a cheap operation for a worker node as well. It is simply
 performance, if we wish to ensure durability of every event. Relaxing this requirement, e.g. by allowing the database files to reside in the operating system's disk cache will 
 improve performance further. 
 
-Processing analytics requests are even chaper, as ananlytics are always up to date, and almost certain to already be in memory. 
+Processing analytics requests are even chaper, as analytics are always up to date, and almost certain to already be in memory. 
 
 ### Scaling workers
 
-A disadvantage with the routing scheme for events, is that workes can not be added to the system quite as easily as API nodes. In essense, the set of workers used for all past and the current time slice cannot be changed from the moment events have been stored in the time slice, unless a scheme to redistribute data is implemented. That will in any case be an expensive operation. 
+A disadvantage with the routing scheme for events, is that workers can not be added to the system quite as easily as API nodes. In essense, the set of workers used for all past and the current time slice cannot be changed from the moment events have been stored in the time slice, unless a scheme to redistribute data is implemented. That will in any case be an expensive operation. 
 
-Adding worker nodes for a future time slice is easier. This can be done simply by adding it to the API nodes' configuration. Changes in this configuration is detected 
+Adding worker nodes for a future time slice is easier. This can be done simply by adding it to the API nodes' configuration. Changes in this configuration are detected 
 automatically every 30 seconds. 
 
 Note that the system does not currently have a mechanism for keeping the cluster configuration in sync between API nodes. It is simply a file which must be kept up to 
@@ -134,7 +134,7 @@ take ~10 minutes on my (totally underpowered) system. Most test failures are cau
 rm -rf ~/rt-data/*mapdb
 ```
 
-A successfull build should result in the following files being built:
+A successful build should result in the following files being built:
 ```
 api/target/api-1.0-SNAPSHOT.jar
 storage/target/worker-1.0-SNAPSHOT.jar
@@ -144,10 +144,10 @@ Start a test run with the `testrun.sh` script. This starts up a cluster of two A
 to last for one minute, and the start time of the first slice is set to the start time of the API node process (This should really not be used with multiple API nodes, 
 as they will get different start times. Replace `"first-slice" : "system"` with `"first-slice" : "<timestamp parsable by LocaDataTime#parse>"` in the cluster config.)
 
-The test run will feed teh system with events for 5 minutes before leaving an idle cluster running. The `testrun.sh` script contains some notes on how to monitor the status 
+The test run will feed the system with events for 5 minutes before leaving an idle cluster running. The `testrun.sh` script contains some notes on how to monitor the status 
 of the cluster, either while it is feeding data or afterwards. 
 
-If adventourous you may try changing the cluster config while it is running. Note that it will happily accept changes that break the routing for already poopulated slices, so 
+If adventurous you may try changing the cluster config while it is running. Note that it will happily accept changes that break the routing for already populated slices, so 
 be careful :) 
 
 ## Config example
