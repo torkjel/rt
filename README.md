@@ -65,7 +65,9 @@ from the worker node hit by the event is cached.
 
 ## Performance and scaling.
 
-This solution implements the stated problem with few performance bottlenecks, and should scale up easily. 
+This solution implements the stated problem with few performance bottlenecks, and should scale up easily.
+
+No particular effort has been put into optimizing for the most common traffic, i.e. inserts into the current slice/hour and retrieving analytics for this slice. The way the system is designed, these requests are still likely to be faster than  requests for less requently touched data, simply because they are more likely to hit the various caches in the system. For new events, the relevant data file is likely to already be in disk cache on the workers, and requests for analytics are more likely to get cache hits in the API nodes.
 
 The API nodes are virtually stateless, except for caches and cluster configuration information. API nodes can be added or removed at any time. 
 
@@ -82,9 +84,7 @@ Processing analytics requests are even chaper, as ananlytics are always up to da
 
 ### Scaling workers
 
-A disadvantage with the routing scheme for events, is that workes can not be added to the system quite as easily as API nodes. In essense, the set of workers used for all past and 
-the current time slice cannot be changed from the moment events have been stored in the time slice, unless a scheme to redistribute data is implemented. That will in any case 
-be an expensive operation. 
+A disadvantage with the routing scheme for events, is that workes can not be added to the system quite as easily as API nodes. In essense, the set of workers used for all past and the current time slice cannot be changed from the moment events have been stored in the time slice, unless a scheme to redistribute data is implemented. That will in any case be an expensive operation. 
 
 Adding worker nodes for a future time slice is easier. This can be done simply by adding it to the API nodes' configuration. Changes in this configuration is detected 
 automatically every 30 seconds. 
